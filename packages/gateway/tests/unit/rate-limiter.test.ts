@@ -10,7 +10,7 @@ function makeState(initial: unknown = null): LimiterState {
   const store = new Map<string, unknown>(initial === null ? [] : [["bucket", initial]]);
   return {
     storage: {
-      get: async (k: string) => store.get(k),
+      get: async (k: string) => store.get(k) ?? null,
       put: async (k: string, v: unknown) => void store.set(k, v),
     },
     blockConcurrencyWhile: (fn: () => Promise<void>) => fn(),

@@ -37,7 +37,7 @@ export class RateLimiterDO {
     // Load once into memory; blockConcurrencyWhile serializes startup so no
     // request observes a half-loaded bucket.
     void state.blockConcurrencyWhile(async () => {
-      this.bucket = (await this.storage.get("bucket")) as Bucket | null;
+      this.bucket = ((await this.storage.get("bucket")) ?? null) as Bucket | null;
     });
   }
 
@@ -62,7 +62,7 @@ export class RateLimiterDO {
     }
 
     const now = Date.now();
-    let bucket = this.bucket;
+    let bucket = this.bucket ?? null;
     if (bucket === null || now - bucket.windowStart >= windowMs) {
       bucket = { tokens: limit, windowStart: now };
     }
