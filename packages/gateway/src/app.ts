@@ -283,9 +283,9 @@ export function createApp() {
       duplex: "half",
     });
     return forwardToOrigin(proxied, origin, destinationPath, identityHeaders, deadlineMs, {
-      maxBodyBytes: rule.maxBodyBytes,
-      allowRedirects: rule.allowRedirects,
       requestId,
+      ...(rule.maxBodyBytes !== undefined ? { maxBodyBytes: rule.maxBodyBytes } : {}),
+      ...(rule.allowRedirects !== undefined ? { allowRedirects: rule.allowRedirects } : {}),
     });
   });
 

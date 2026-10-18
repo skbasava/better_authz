@@ -1,4 +1,4 @@
-import type { GatewayConfig, PermissionCatalog, RouteRule } from "@gateway/shared";
+import type { GatewayConfig, OrganizationIdSource, PermissionCatalog, RouteRule } from "@gateway/shared";
 
 export class GatewayConfigError extends Error {
   constructor(message: string) {
@@ -128,7 +128,7 @@ function validatePolicy(
         if (!known.has(name)) fail(`route(${ruleId}).allOf: unknown catalog permission ${name}`);
         return name;
       });
-      return { kind: "organization-permission", organizationIdFrom: orgSource, allOf };
+      return { kind: "organization-permission", organizationIdFrom: orgSource as OrganizationIdSource, allOf };
     }
     default:
       fail(`route(${ruleId}).policy.kind is missing or unsupported`);

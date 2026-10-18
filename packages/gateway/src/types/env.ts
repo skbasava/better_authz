@@ -1,9 +1,8 @@
-import type { RateLimiterDO } from "../rate-limit/limiter-do.js";
 
 export interface GatewayBindings {
   /** Service binding to the auth Worker. */
   AUTH_WORKER: Fetcher;
-  RATE_LIMITER: DurableObjectNamespace<RateLimiterDO>;
+  RATE_LIMITER: DurableObjectNamespace;
   /** JSON-serialized GatewayConfig (Worker env var). */
   GATEWAY_CONFIG: string;
   /** JSON-serialized PermissionCatalog (Worker env var). */
