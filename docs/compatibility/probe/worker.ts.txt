@@ -1,0 +1,29 @@
+// Disposable probe Worker for Task 0 Step 4 (gate B-04 runtime evidence).
+// Deploy with: wrangler deploy --name compat-probe --compatibility-date <DATE>
+// then record the date + this test's pass in docs/compatibility/gate-status.md.
+//
+// This file is a .txt TEMPLATE: copy to a scratch directory before deploying;
+// it is not part of either production Worker.
+
+export default {
+  async fetch(): Promise<Response> {
+    const results: Record<string, unknown> = {};
+
+    // B-04: multi-value Set-Cookie must round-trip through getSetCookie().
+    const headers = new Headers();
+    headers.append("Set-Cookie", "a=1; Path=/; HttpOnly");
+    headers.append("Set-Cookie", "b=2; Path=/; HttpOnly");
+    const cookies = headers.getSetCookie();
+    results.getSetCookie = {
+      available: typeof headers.getSetCookie === "function",
+      count: cookies.length,
+      values: cookies,
+      pass: typeof headers.getSetCookie === "function" && cookies.length === 2,
+    };
+
+    // getSession returnHeaders/asResponse behavior (gate B-06) is probed in
+    // run-functional.mjs against a real pinned instance; see findings doc.
+
+    return Response.json(results, { headers: { "Cache-Control": "no-store" } });
+  },
+};

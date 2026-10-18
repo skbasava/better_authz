@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+// Disposable functional probe for Task 0 Steps 1-3 (mutation invariants).
+// Copy to a scratch directory as run-functional.mjs, set BASE_URL to the
+// pinned Better Auth instance (local or remote), run:
+//   node run-functional.mjs
+// NEGATIVE findings must be preserved even after a fix is adopted.
+
+const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+
+let failures = 0;
+function report(name, pass, detail) {
+  console.log(`${pass ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
+  if (!pass) failures += 1;
+}
+
+async function post(path, body, headers = {}) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  return { status: res.status, json: await res.json().catch(() => null), headers: res.headers };
+}
+
+// ── Step 1/2: last-owner invariant ────────────────────────────────────
+// Two owners demote each other concurrently. The unguarded interleaving
+// result (both 200, zero owners) is the negative finding this probe must
+// be able to reproduce on an unguarded build.
+async function probeLastOwnerInvariant() {
+  const a = await post("/api/auth/sign-up/email", { email: "owner-a@probe.test", password: "probe-pass-1", name: "Owner A" });
+  const b = await post("/api/auth/sign-up/email", { email: "owner-b@probe.test", password: "probe-pass-2", name: "Owner B" });
+  report("sign-up both owners", a.status === 200 && b.status === 200);
+
+  // COMPATIBILITY GATE [B-03]: organization creation / membership / role
+  // endpoints below use placeholder paths — replace with the verified
+  // endpoint inventory from docs/compatibility/auth-endpoints.md before
+  // running. Do not guess API shapes.
+  console.log("GATE [B-03]: org mutation endpoints not verified — populate auth-endpoints.md first");
+  return false;
+}
+
+// ── Step 4: bearer issuance header names (gate B-05) ──────────────────
+async function probeBearerIssuance() {
+  // Record which response header carries the bearer token on sign-in.
+  const res = await post("/api/auth/sign-in/email", { email: "probe@probe.test", password: "probe-pass-1" });
+  const tokenHeader = res.headers.get("x-bearer-token") ?? res.headers.get("x-session-token");
+  report("bearer issuance header observed (record name in gate-status.md)", tokenHeader !== null, tokenHeader ? "present" : "none found");
+}
+
+const ran = await probeLastOwnerInvariant();
+await probeBearerIssuance();
+console.log(ran ? "" : "(last-owner probe incomplete — see GATE [B-03] above)");
+process.exit(failures > 0 ? 1 : 0);

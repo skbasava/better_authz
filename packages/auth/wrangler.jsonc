@@ -1,0 +1,23 @@
+{
+  "name": "auth-worker",
+  "main": "src/index.ts",
+  // Must match the gateway's evidence-backed compatibility date (B-04).
+  "compatibility_date": "TO_BE_DETERMINED",
+  // APPROVED EXCEPTION ONLY: AsyncLocalStorage for better-auth. No broader
+  // nodejs_compat anywhere in this project.
+  "compatibility_flags": ["nodejs_als"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "auth-db",
+      "database_id": "TBD"
+    }
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "",
+    "ALLOWED_ORIGINS": "",
+    "ENVIRONMENT": "development",
+    "PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[]}"
+  }
+  // BETTER_AUTH_SECRET: wrangler secret put BETTER_AUTH_SECRET
+}
