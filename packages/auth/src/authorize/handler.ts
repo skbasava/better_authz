@@ -81,8 +81,8 @@ export async function authorizeHandler(
   if (session === null) {
     return errorResponse("INVALID_SESSION", "No valid session", body.requestId, 401);
   }
-
-  const decision = await evaluatePolicy(body.policy, session, orgReaderFactory(auth), catalog);
+  const reader = body.policy.kind === "organization-permission" ? orgReaderFactory(auth) : null;
+  const decision = await evaluatePolicy(body.policy, session, reader, catalog);
   if (decision.kind === "deny") {
     return errorResponse(decision.code, "Authorization denied", body.requestId, 403, session.renewalCookies);
   }

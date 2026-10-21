@@ -6,7 +6,7 @@ export interface AuthBindings {
   ENVIRONMENT: string;
   /** JSON-serialized PermissionCatalog. */
   PERMISSION_CATALOG: string;
-  // BETTER_AUTH_SECRET is a Worker secret (wrangler secret put), never a var.
+  BETTER_AUTH_SECRET: string; 
 }
 
 export interface AuthVariables {

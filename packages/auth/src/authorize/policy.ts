@@ -37,7 +37,7 @@ export function createBetterAuthOrgReader(
 export async function evaluatePolicy(
   policy: PolicyRequest,
   session: ResolvedSession,
-  reader: OrgPermissionReader,
+  reader: OrgPermissionReader | null,
   catalog: PermissionCatalog,
 ): Promise<PolicyDecision> {
   switch (policy.kind) {
@@ -53,6 +53,8 @@ export async function evaluatePolicy(
     }
 
     case "organization-permission": {
+      if (reader === null) return {kind: "deny", code: "FORBIDDEN"};
+
       // Fail closed on unknown names before any membership lookup (§10.28).
       try {
         assertKnownPermissions(policy.allOf, catalog);

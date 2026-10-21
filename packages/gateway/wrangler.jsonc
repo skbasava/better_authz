@@ -3,19 +3,19 @@
   "main": "src/index.ts",
   // COMPATIBILITY GATE [B-04]: set from the passing getSetCookie() runtime
   // test; documented in docs/compatibility/gate-status.md.
-  "compatibility_date": "TO_BE_DETERMINED",
+  "compatibility_date": "2025-09-25",
   "compatibility_flags": [],
   "services": [
-    // { "binding": "AUTH_WORKER", "service": "auth-worker" }
+     { "binding": "AUTH_WORKER", "service": "auth-worker" }
   ],
   "durable_objects": {
     "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimiterDO" }]
   },
-  "migrations": [{ "tag": "v1", "new_classes": ["RateLimiterDO"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiterDO"] }],
   "vars": {
-    "GATEWAY_CONFIG": "{}",
+   "GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://httpbin.org\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"/headers\",\"policy\":{\"kind\":\"signed-in\"}}]}",
     "PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[]}",
-    "SESSION_COOKIE_NAMES": "session",
+    "SESSION_COOKIE_NAMES": "__Secure-better-auth.session_token",
     "AUTH_DEADLINE_MS": "2000",
     "RATE_LIMIT_LIMIT": "120",
     "RATE_LIMIT_WINDOW_MS": "60000",
@@ -23,4 +23,7 @@
   }
   // Per-origin secrets (ORIGIN_BILLING_SECRET, ...) are Worker secrets.
   // wrangler secret put ORIGIN_BILLING_SECRET
+
+    //"GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://echo-origin.satish-aradhya.workers.dev\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"/headers\",\"policy\":{\"kind\":\"signed-in\"}}]}",
+    //"PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[{\"name\":\"invoice.read\"},{\"name\":\"invoice.write\"}]}",
 }
