@@ -13,17 +13,36 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiterDO"] }],
   "vars": {
-   "GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://httpbin.org\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"/headers\",\"policy\":{\"kind\":\"signed-in\"}}]}",
+    "GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://auth-worker.satish-aradhya.workers.dev\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"@identity\",\"policy\":{\"kind\":\"signed-in\"}}]}",
     "PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[]}",
     "SESSION_COOKIE_NAMES": "__Secure-better-auth.session_token",
     "AUTH_DEADLINE_MS": "2000",
     "RATE_LIMIT_LIMIT": "120",
+    "ALLOWED_ORGINS": "https://auth-gateway.satish-aradhya.workers.dev",
     "RATE_LIMIT_WINDOW_MS": "60000",
     "PUBLIC_GATEWAY_ORIGIN": ""
-  }
+  },
   // Per-origin secrets (ORIGIN_BILLING_SECRET, ...) are Worker secrets.
   // wrangler secret put ORIGIN_BILLING_SECRET
 
+  // ...
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": false,
+      "head_sampling_rate": 1,
+      "persist": true
+    },
+    "issue_detection": {
+      "enabled": false
+    }
+  }
+  // ...
     //"GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://echo-origin.satish-aradhya.workers.dev\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"/headers\",\"policy\":{\"kind\":\"signed-in\"}}]}",
     //"PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[{\"name\":\"invoice.read\"},{\"name\":\"invoice.write\"}]}",
 }

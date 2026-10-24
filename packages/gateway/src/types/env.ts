@@ -1,4 +1,3 @@
-
 export interface GatewayBindings {
   /** Service binding to the auth Worker. */
   AUTH_WORKER: Fetcher;
@@ -14,6 +13,8 @@ export interface GatewayBindings {
   /** Fixed-window rate limiter settings (optional). */
   RATE_LIMIT_LIMIT?: string;
   RATE_LIMIT_WINDOW_MS?: string;
+  /** Tighter limit for /api/auth/* brute-force protection (CRIT-1). */
+  RATE_LIMIT_AUTH_LIMIT?: string;
 
   // Per-origin secrets, e.g. ORIGIN_BILLING_SECRET, named by
   // OriginConfig.secretEnvVar; accessed via env[config.secretEnvVar].

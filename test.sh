@@ -11,7 +11,7 @@ curl -i $GW/api/whoami
 # c. Sign up through the gateway (auth proxy path)
 curl -i -c jar.txt -X POST $GW/api/auth/sign-up/email \
   -H 'Content-Type: application/json' \
-  -d '{"email":"test3@example.com","password":"TestPass123!","name":"Test3 User"}'
+  -d '{"email":"test6@example.com","password":"TestPass123!","name":"Test6 User"}'
 # → 200 + Set-Cookie better-auth.session_token=...
 
 # d. Session check through the gateway
