@@ -40,6 +40,10 @@ export async function resolveSession(
   const user = result.user;
   const session = result.session;
   if (!isRecord(user) || typeof user.id !== "string" || user.id === "") return null;
+  // Enabled(u): disabled/banned accounts authenticate nowhere.
+  // Field name verified against pinned 1.7.10 user schema (B-01 evidence);
+  // defensive truthiness check — absent field means enabled.
+  if ((user as { banned?: unknown }).banned === true) return null;
   if (!isRecord(session)) return null;
   if (typeof session.id !== "string" || session.id === "") return null;
   if (typeof session.userId !== "string" || session.userId !== user.id) return null;

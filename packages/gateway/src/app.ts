@@ -274,7 +274,7 @@ export function createApp() {
       }
 
       const authDeadline = readIntEnv(c.env.AUTH_DEADLINE_MS, DEFAULT_AUTH_DEADLINE_MS);
-      const requestBody: AuthorizeRequestBody = { requestId, policy: built.policy };
+      const requestBody: AuthorizeRequestBody = { requestId, audience: c.env.GATEWAY_AUDIENCE, policy: built.policy };
       const authorizeOutcome = await callAuthorize(
         c.env.AUTH_WORKER, credential.credential, requestBody, authDeadline, clientIp,
       );

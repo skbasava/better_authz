@@ -20,11 +20,15 @@ export interface OriginConfig {
 // Auth Worker.
 // ---------------------------------------------------------------------------
 
-export type OrganizationIdSource = `path.${string}`;
+// Organization ID source:
+//   "path.organizationId" — org from the route's declared path parameter (shared gateway)
+//   "const.org_acme_erp"  — org fixed at config time (dedicated per-org gateway)
+export type OrganizationIdSource = `path.${string}` | `const.${string}`;
 
 export type PolicyConfig =
   | { readonly kind: "public" }
   | { readonly kind: "signed-in" }
+  | { readonly kind: "app-access" }
   | { readonly kind: "global-role"; readonly allowedRoles: readonly string[] }
   | {
       readonly kind: "organization-permission";

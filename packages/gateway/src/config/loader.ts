@@ -8,7 +8,8 @@ export class GatewayConfigError extends Error {
 }
 
 const PERMISSION_NAME = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/;
-const ORG_ID_SOURCE = /^path\.[A-Za-z][A-Za-z0-9_]*$/;
+const ORG_ID_SOURCE_PATH = /^path\.[A-Za-z][A-Za-z0-9_]*$/;
+const ORG_ID_SOURCE_CONST = /^const\.[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 function fail(message: string): never {
   throw new GatewayConfigError(message);
@@ -100,6 +101,7 @@ function validatePolicy(
   switch (raw.kind) {
     case "public":
     case "signed-in":
+    case "app-access":
       return { kind: raw.kind };
     case "global-role": {
       if (!Array.isArray(raw.allowedRoles) || raw.allowedRoles.length === 0) {
@@ -112,12 +114,15 @@ function validatePolicy(
     }
     case "organization-permission": {
       const orgSource = expectString(raw.organizationIdFrom, `route(${ruleId}).organizationIdFrom`);
-      if (!ORG_ID_SOURCE.test(orgSource)) {
-        fail(`route(${ruleId}).organizationIdFrom must have format path.paramName`);
-      }
-      const paramName = orgSource.slice("path.".length);
-      if (!params.has(paramName)) {
-        fail(`route(${ruleId}).organizationIdFrom references unknown path param :${paramName}`);
+      if (ORG_ID_SOURCE_CONST.test(orgSource)) {
+        // Fixed org (dedicated per-org gateway): validated grammar, no path param needed.
+      } else if (ORG_ID_SOURCE_PATH.test(orgSource)) {
+        const paramName = orgSource.slice("path.".length);
+        if (!params.has(paramName)) {
+          fail(`route(${ruleId}).organizationIdFrom references unknown path param :${paramName}`);
+        }
+      } else {
+        fail(`route(${ruleId}).organizationIdFrom must have format path.paramName or const.orgId`);
       }
       if (!Array.isArray(raw.allOf) || raw.allOf.length === 0) {
         fail(`route(${ruleId}).allOf must be a non-empty array`);
@@ -128,7 +133,7 @@ function validatePolicy(
         if (!known.has(name)) fail(`route(${ruleId}).allOf: unknown catalog permission ${name}`);
         return name;
       });
-      return { kind: "organization-permission", organizationIdFrom: orgSource as OrganizationIdSource, allOf };
+      return { kind: "organization-permission", organizationIdFrom: orgSource as OrganizationIdSource , allOf };
     }
     default:
       fail(`route(${ruleId}).policy.kind is missing or unsupported`);
@@ -145,10 +150,7 @@ function validateRoute(raw: unknown, known: Set<string>): RouteRule {
   if (path.startsWith("/_internal/")) {
     fail(`route(${id}).path must not start with /_internal/`);
   }
-  const destinationPath = 
-	  raw.destinationPath === "@identity"
-  		? "@identity"
-		: validatePath(raw.destinationPath, `route(${id}).destinationPath`);
+  const destinationPath = validatePath(raw.destinationPath, `route(${id}).destinationPath`);
 
   let rule: RouteRule = {
     id,

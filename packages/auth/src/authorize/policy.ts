@@ -1,83 +1,86 @@
 import type { PermissionCatalog, PolicyRequest } from "@gateway/shared";
 
 import { assertKnownPermissions, UnknownPermissionError } from "../catalog/index.js";
+import type { DenyLayer, MembershipResolver, PolicyPorts, RoleResolver } from "./ports.js";
 import type { ResolvedSession } from "./session.js";
 
 export type PolicyDecision =
   | { readonly kind: "allow" }
-  | { readonly kind: "deny"; readonly code: "FORBIDDEN" };
+  | { readonly kind: "deny"; readonly code: "FORBIDDEN"; readonly layer: DenyLayer };
 
-/**
- * Reads the caller's effective permission set in one organization.
- * Implemented against the pinned Better Auth organization plugin (GATE B-03).
- * Returns null when the user is not a member — the policy then denies.
- */
-export interface OrgPermissionReader {
-  readonly getMembershipPermissions: (input: {
-    readonly organizationId: string;
-    readonly userId: string;
-  }) => Promise<readonly string[] | null>;
+export function deny(layer: DenyLayer): PolicyDecision {
+  return { kind: "deny", code: "FORBIDDEN", layer };
 }
 
 /**
- * COMPATIBILITY GATE [B-03]:
- * - The organization-plugin API used to resolve membership -> role ->
- *   permission set is not verified against pinned 1.7.10.
- * - Do not implement against an assumed API; record the verified call in
- *   docs/compatibility/gate-status.md first.
+ * Four-dimensional evaluation (design doc §4):
+ *   Allow(u,a,o,p) = Authenticated(u) ∧ Enabled(u) — resolved upstream
+ *                  ∧ AppEnabled(o,a) ∧ AppMember(u,o,a)   ← layer 2 (ports.application)
+ *                  ∧ HasPermission(u,o,a,p)              ← layer 3 (ports.membership + catalog)
+ * Layers are deny-tagged so the audit log can distinguish
+ * "no product access" from "not an org member" from "missing permission".
  */
-export function createBetterAuthOrgReader(
-  _auth: unknown, // AuthInstance, gated
-): OrgPermissionReader {
-  throw new Error(
-    "COMPATIBILITY GATE [B-03]: organization-plugin permission resolution not enabled",
-  );
-}
-
 export async function evaluatePolicy(
   policy: PolicyRequest,
   session: ResolvedSession,
-  reader: OrgPermissionReader | null,
+  ports: PolicyPorts,
   catalog: PermissionCatalog,
 ): Promise<PolicyDecision> {
   switch (policy.kind) {
     case "signed-in":
+      // Layer 1 only: a valid, enabled session is sufficient.
       return { kind: "allow" };
 
+    case "app-access": {
+      // Layer 2: known audience + at least one membership in an org of it.
+      if ((await ports.application.resolveNamespace(ports.audience)) === null) {
+        return deny("app");
+      }
+      return (await ports.application.hasAnyMembership(session.userId, ports.audience))
+        ? { kind: "allow" }
+        : deny("app");
+    }
+
     case "global-role": {
-      // Platform roles never grant implicit organization access (§10.9).
-      if (session.platformRole === null) return { kind: "deny", code: "FORBIDDEN" };
+      // Platform roles never grant implicit org access (§10.9).
+      if (session.platformRole === null) return deny("permission");
       return policy.allowedRoles.includes(session.platformRole)
         ? { kind: "allow" }
-        : { kind: "deny", code: "FORBIDDEN" };
+        : deny("permission");
     }
 
     case "organization-permission": {
-      if (reader === null) return {kind: "deny", code: "FORBIDDEN"};
+      // Layer-2 precondition: the requested org must belong to the asking
+      // app. This closes the cross-app confused-deputy class entirely.
+      if (!(await ports.application.orgBelongsTo(policy.organizationId, ports.audience))) {
+        return deny("app");
+      }
+      if (ports.membership === null) return deny("membership");
 
-      // Fail closed on unknown names before any membership lookup (§10.28).
       try {
         assertKnownPermissions(policy.allOf, catalog);
       } catch (err) {
-        if (err instanceof UnknownPermissionError) return { kind: "deny", code: "FORBIDDEN" };
+        if (err instanceof UnknownPermissionError) return deny("permission");
         throw err;
       }
-      const granted = await reader.getMembershipPermissions({
+      const granted = await ports.membership.getMembershipPermissions({
         organizationId: policy.organizationId,
         userId: session.userId,
       });
-      if (granted === null) return { kind: "deny", code: "FORBIDDEN" };
+      if (granted === null) return deny("membership");
       try {
         assertKnownPermissions(granted, catalog);
       } catch (err) {
-        // A role containing names the current catalog doesn't know must not
-        // be reinterpreted — deny (catalog rollout skew, Review Focus 4).
-        if (err instanceof UnknownPermissionError) return { kind: "deny", code: "FORBIDDEN" };
+        // A stored role containing names outside the current catalog must
+        // not be reinterpreted — deny (catalog rollout skew, §10.28).
+        if (err instanceof UnknownPermissionError) return deny("permission");
         throw err;
       }
       return policy.allOf.every((p) => granted.includes(p))
         ? { kind: "allow" }
-        : { kind: "deny", code: "FORBIDDEN" };
+        : deny("permission");
     }
   }
 }
+
+export type { MembershipResolver, RoleResolver };

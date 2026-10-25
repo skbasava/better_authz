@@ -1,10 +1,13 @@
 import type { PermissionCatalog } from "@gateway/shared";
 
+import { createD1ApplicationResolver } from "../better-auth/adapter.js";
 import { getAuth } from "../better-auth/instance.js";
+import { createConsoleAuditEmitter } from "./audit.js";
 import { loadCatalog } from "../catalog/index.js";
 import type { AuthBindings } from "../types/env.js";
 import { buildAllowResponse, validateRequest } from "./contract.js";
-import { evaluatePolicy, type OrgPermissionReader } from "./policy.js";
+import { evaluatePolicy, type MembershipResolver } from "./policy.js";
+import type { PolicyPorts } from "./ports.js";
 import { resolveSession } from "./session.js";
 
 function errorResponse(
@@ -31,22 +34,25 @@ function allowHeaders(cookies: readonly string[]): Headers {
   return headers;
 }
 
+function knownAudiences(env: AuthBindings): readonly string[] {
+  return env.KNOWN_AUDIENCES.split(",").map((s) => s.trim()).filter((s) => s !== "");
+}
+
 /**
- * POST /_internal/v1/authorize — binding-only.
+ * POST /_internal/v1/authorize — binding-only authorization endpoint.
  *
- * 1. Validate the request body (incl. known-permission check).
- * 2. Resolve the session through Better Auth.
- * 3. 401 when invalid/expired. 4. Evaluate policy. 5. 403 on deny.
- * 6. 200 + AuthorizeAllow on success. 7. Renewal Set-Cookie preserved on
- *    allow AND deny via getSetCookie().
- *
- * Never includes the complete session token, password, or credential value
- * in a JSON response.
+ * Layered evaluation (design doc §4):
+ *   1. Validate contract (incl. audience — Amendment A1).
+ *   2. Layer 1: resolve session via Better Auth (∅ → 401, layer "authn").
+ *   3. Layers 2–4: evaluatePolicy over ports (app → membership → permission).
+ *   4. Emit an audit event for EVERY decision (allow and deny).
+ *   5. 200 + AuthorizeAllow / 403 FORBIDDEN. Renewal cookies preserved on
+ *      both paths via getSetCookie() (GATE B-06: capture still a stub).
  */
 export async function authorizeHandler(
   request: Request,
   env: AuthBindings,
-  orgReaderFactory: (auth: ReturnType<typeof getAuth>) => OrgPermissionReader,
+  orgReaderFactory: (auth: ReturnType<typeof getAuth>) => MembershipResolver,
 ): Promise<Response> {
   let rawBody: unknown;
   try {
@@ -59,30 +65,54 @@ export async function authorizeHandler(
     return errorResponse("BAD_AUTH_RESPONSE", "Malformed authorize request", "unknown", 400);
   }
 
+  const audit = createConsoleAuditEmitter();
+
   let catalog: PermissionCatalog;
   try {
     catalog = loadCatalog(env);
-  } catch (err) {
-    return errorResponse(
-      "FORBIDDEN",
-      `Catalog unavailable: ${err instanceof Error ? err.message : "error"}`,
-      body.requestId,
-      403,
-    );
+  } catch {
+    return errorResponse("FORBIDDEN", "Catalog unavailable", body.requestId, 403);
   }
 
-  // COMPATIBILITY GATE [B-01]: getAuth() fails closed until the pinned
-  // instance wiring is verified and enabled.
+  // COMPATIBILITY GATE [B-01]: getAuth() fails closed until verified.
   const auth = getAuth(env);
 
-  // COMPATIBILITY GATE [B-06]: renewal cookie capture requires the verified
-  // returnHeaders/asResponse behavior; see docs/compatibility/gate-status.md.
   const session = await resolveSession(auth, request.headers);
   if (session === null) {
+    audit.emit({
+      requestId: body.requestId,
+      userId: null,
+      audience: body.audience,
+      decision: "deny",
+      layer: "authn",
+      timestamp: new Date().toISOString(),
+    });
     return errorResponse("INVALID_SESSION", "No valid session", body.requestId, 401);
   }
-  const reader = body.policy.kind === "organization-permission" ? orgReaderFactory(auth) : null;
-  const decision = await evaluatePolicy(body.policy, session, reader, catalog);
+
+  const ports: PolicyPorts = {
+    audience: body.audience,
+    application: createD1ApplicationResolver(env.DB, knownAudiences(env)),
+    // Membership is resolved lazily: only org policies need it (B-03 gated).
+    membership:
+      body.policy.kind === "organization-permission" ? orgReaderFactory(auth) : null,
+  };
+
+  const decision = await evaluatePolicy(body.policy, session, ports, catalog);
+
+  audit.emit({
+    requestId: body.requestId,
+    userId: session.userId,
+    audience: body.audience,
+    ...(body.policy.kind === "organization-permission"
+      ? { organizationId: body.policy.organizationId }
+      : {}),
+    ...(body.policy.kind === "organization-permission" ? { permissions: body.policy.allOf } : {}),
+    decision: decision.kind,
+    layer: decision.kind === "deny" ? decision.layer : "permission",
+    timestamp: new Date().toISOString(),
+  });
+
   if (decision.kind === "deny") {
     return errorResponse(decision.code, "Authorization denied", body.requestId, 403, session.renewalCookies);
   }

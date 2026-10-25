@@ -21,6 +21,8 @@ export function buildPolicy(
       return { kind: "public" };
     case "signed-in":
       return { kind: "policy", policy: { kind: "signed-in" } };
+    case "app-access":
+      return { kind: "policy", policy: { kind: "app-access" } };
     case "global-role":
       return { kind: "policy", policy: { kind: "global-role", allowedRoles: config.allowedRoles } };
     case "organization-permission": {

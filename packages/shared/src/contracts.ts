@@ -4,6 +4,7 @@
 
 export type PolicyRequest =
   | { readonly kind: "signed-in" }
+  | { readonly kind: "app-access" }
   | { readonly kind: "global-role"; readonly allowedRoles: readonly string[] }
   | {
       readonly kind: "organization-permission";
@@ -14,6 +15,13 @@ export type PolicyRequest =
 export interface AuthorizeRequestBody {
   /** Gateway-generated UUID (crypto.randomUUID()). */
   readonly requestId: string;
+  /**
+   * Application audience — which product is asking ("erp", "laundry", ...).
+   * Supplied by the gateway from ITS OWN deployment config, never from
+   * client input. Amendments A1: enables layer-2 application access checks
+   * and org-namespace validation at the authority.
+   */
+  readonly audience: string;
   readonly policy: PolicyRequest;
 }
 

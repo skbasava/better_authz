@@ -8,6 +8,8 @@ export interface GatewayBindings {
   PERMISSION_CATALOG: string;
   /** Comma-separated recognized session cookie names. */
   SESSION_COOKIE_NAMES: string;
+  /** This gateway's application audience (Amendment A1). */
+  GATEWAY_AUDIENCE: string;
   /** Authentication authorize deadline, ms. */
   AUTH_DEADLINE_MS: string;
   /** Fixed-window rate limiter settings (optional). */

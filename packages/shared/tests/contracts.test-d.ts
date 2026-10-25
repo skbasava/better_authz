@@ -22,6 +22,7 @@ describe("PolicyRequest contract", () => {
   it("signed-in policy round-trips", () => {
     const body = {
       requestId: "6f1c2a4e-8f4b-4a6c-b3f2-2d8e9a1c5b7d",
+      audience: "erp",
       policy: { kind: "signed-in" },
     } as const satisfies AuthorizeRequestBody;
 
