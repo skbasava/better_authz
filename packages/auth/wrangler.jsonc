@@ -4,6 +4,7 @@
 	"workers_dev": false,
 	"preview_urls": false,
 	"compatibility_date": "2025-09-25",
+        "KNOWN_AUDIENCES": "default",
 	"compatibility_flags": [
 		"nodejs_als"
 	],

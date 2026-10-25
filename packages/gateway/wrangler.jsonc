@@ -15,6 +15,7 @@
   "vars": {
     "GATEWAY_CONFIG": "{\"origins\":[{\"id\":\"echo\",\"url\":\"https://auth-worker.satish-aradhya.workers.dev\",\"secretEnvVar\":\"ORIGIN_ECHO_SECRET\",\"deadlineMs\":5000}],\"routes\":[{\"id\":\"whoami\",\"method\":\"GET\",\"path\":\"/api/whoami\",\"originId\":\"echo\",\"destinationPath\":\"@identity\",\"policy\":{\"kind\":\"signed-in\"}}]}",
     "PERMISSION_CATALOG": "{\"version\":1,\"permissions\":[]}",
+    "GATEWAY_AUDIENCE": "default",
     "SESSION_COOKIE_NAMES": "__Secure-better-auth.session_token",
     "AUTH_DEADLINE_MS": "2000",
     "RATE_LIMIT_LIMIT": "120",

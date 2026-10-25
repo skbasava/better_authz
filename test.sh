@@ -1,25 +1,37 @@
+#!/usr/bin/env bash
 GW=https://auth-gateway.satish-aradhya.workers.dev
+set -u
 
-# a. Health — pipeline alive, no config needed
-curl -i $GW/healthz
-# → 200 {"status":"ok"}
 
-# b. Protected route without credential — credential boundary works
-curl -i $GW/api/whoami
-# → 401 {"code":"NO_CREDENTIAL",...}
+grep -o '"destinationPath":"[^"]*"' ../packages/gateway/wrangler.jsonc   # must print @identity
 
-# c. Sign up through the gateway (auth proxy path)
-curl -i -c jar.txt -X POST $GW/api/auth/sign-up/email \
+echo "── a. health ──"
+curl -i -s $GW/healthz
+echo; echo
+
+echo "── b. whoami without credential → expect 401 NO_CREDENTIAL ──"
+curl -i -s $GW/api/whoami
+echo; echo
+
+echo "── c. sign-IN (not sign-up — test6 already exists; sign-up returns an error body) ──"
+curl -i -s -c jar.txt -X POST $GW/api/auth/sign-in/email \
   -H 'Content-Type: application/json' \
-  -d '{"email":"test6@example.com","password":"TestPass123!","name":"Test6 User"}'
-# → 200 + Set-Cookie better-auth.session_token=...
+  -d '{"email":"test6@example.com","password":"TestPass123!"}'
+echo; echo
 
-# d. Session check through the gateway
-curl -i -b jar.txt $GW/api/auth/get-session
-# → 200 with user JSON
+echo "── d. get-session with cookie → 200 + user JSON ──"
+curl -i -s -b jar.txt $GW/api/auth/get-session
+echo; echo
 
-# e. THE token-verification test — protected route with the session
-curl -i -b jar.txt $GW/api/whoami
-# → 200, body is httpbin's echo showing:
-#    "Gateway-User-Id", "Gateway-Session-Id", "Gateway-Policy-Id": "whoami",
-#    "Gateway-Origin-Auth": "<your secret>"
+echo "── e. whoami with cookie ──"
+curl -i -s -b jar.txt $GW/api/whoami
+echo; echo
+
+echo "── f. whoami with BEARER (token from step c body or set-auth-token header) ──"
+# TOKEN='paste-from-step-c'; then uncomment:
+# curl -i -s $GW/api/whoami -H "Authorization: Bearer $TOKEN"
+echo
+
+echo "── g. negatives ──"
+curl -i -s $GW/api/whoami -H 'Authorization: Bearer garbage'      # → 401 INVALID_SESSION
+curl -i -s -b jar.txt $GW/api/whoami -H 'Authorization: Bearer x' # → 400 AMBIGUOUS_CREDENTIAL

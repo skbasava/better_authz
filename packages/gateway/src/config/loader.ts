@@ -150,7 +150,11 @@ function validateRoute(raw: unknown, known: Set<string>): RouteRule {
   if (path.startsWith("/_internal/")) {
     fail(`route(${id}).path must not start with /_internal/`);
   }
-  const destinationPath = validatePath(raw.destinationPath, `route(${id}).destinationPath`);
+  //const destinationPath = validatePath(raw.destinationPath, `route(${id}).destinationPath`);
+  const destinationPath =
+    raw.destinationPath === "@identity"
+      ? "@identity"
+      : validatePath(raw.destinationPath, `route(${id}).destinationPath`);
 
   let rule: RouteRule = {
     id,
