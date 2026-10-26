@@ -1,4 +1,4 @@
-import type { GatewayConfig, OrganizationIdSource, PermissionCatalog, RouteRule } from "@gateway/shared";
+import type { CompactSchema, GatewayConfig, OrganizationIdSource, PermissionCatalog, RouteRule, TenantHost } from "@gateway/shared";
 
 export class GatewayConfigError extends Error {
   constructor(message: string) {
@@ -114,7 +114,10 @@ function validatePolicy(
     }
     case "organization-permission": {
       const orgSource = expectString(raw.organizationIdFrom, `route(${ruleId}).organizationIdFrom`);
-      if (ORG_ID_SOURCE_CONST.test(orgSource)) {
+      if (orgSource === "host.tenant") {
+	   // Shared-gateway tenant hostname: org resolved from the tenantHosts
+        // registry at request time — validated there, never from the client.
+      } else if (ORG_ID_SOURCE_CONST.test(orgSource)) {
         // Fixed org (dedicated per-org gateway): validated grammar, no path param needed.
       } else if (ORG_ID_SOURCE_PATH.test(orgSource)) {
         const paramName = orgSource.slice("path.".length);
@@ -138,6 +141,21 @@ function validatePolicy(
     default:
       fail(`route(${ruleId}).policy.kind is missing or unsupported`);
   }
+}
+
+const SCHEMA_TYPES = new Set(["object", "array", "string", "number", "integer", "boolean", "null"]);
+
+function isCompactSchema(raw: unknown): raw is CompactSchema {
+  if (!isRecord(raw)) return false;
+  if (raw.type !== undefined && (typeof raw.type !== "string" || !SCHEMA_TYPES.has(raw.type))) return false;
+  if (raw.required !== undefined && (!Array.isArray(raw.required) || !raw.required.every((r) => typeof r === "string"))) return false;
+  if (raw.properties !== undefined) {
+    if (!isRecord(raw.properties)) return false;
+    for (const v of Object.values(raw.properties)) if (!isCompactSchema(v)) return false;
+  }
+  if (raw.items !== undefined && !isCompactSchema(raw.items)) return false;
+  if (raw.enum !== undefined && !Array.isArray(raw.enum)) return false;
+  return true;
 }
 
 function validateRoute(raw: unknown, known: Set<string>): RouteRule {
@@ -195,6 +213,32 @@ function validateRoute(raw: unknown, known: Set<string>): RouteRule {
       },
     };
   }
+
+  if (raw.audience !== undefined) {
+    const audience = expectString(raw.audience, `route(${id}).audience`);
+    if (!/^[a-z][a-z0-9_-]{0,31}$/.test(audience)) {
+      fail(`route(${id}).audience must be a short lowercase identifier`);
+    }
+    rule = { ...rule, audience };
+  }
+  if (raw.policyChain !== undefined) {
+    if (
+      !Array.isArray(raw.policyChain) ||
+      raw.policyChain.length === 0 ||
+      !raw.policyChain.every((p) => typeof p === "string" && p !== "")
+    ) {
+      fail(`route(${id}).policyChain must be a non-empty array of policy names`);
+    }
+    rule = { ...rule, policyChain: raw.policyChain };
+  }
+  if (raw.requestValidation !== undefined) {
+    const rv = raw.requestValidation;
+    if (!isRecord(rv) || (rv.mode !== "reject" && rv.mode !== "log") || !isCompactSchema(rv.schema)) {
+      fail(`route(${id}).requestValidation must be { mode: "reject"|"log", schema: CompactSchema }`);
+    }
+    rule = { ...rule, requestValidation: { mode: rv.mode, schema: rv.schema } };
+  }
+
   if (raw.allowRedirects === true) rule = { ...rule, allowRedirects: true };
   return rule;
 }
@@ -222,5 +266,25 @@ export function validateRouteConfig(raw: unknown, catalog: PermissionCatalog): G
       fail(`route(${route.id}).originId references unknown origin ${route.originId}`);
     }
   }
-  return { origins, routes };
+
+  let tenantHosts: readonly TenantHost[] | undefined;
+  if (raw.tenantHosts !== undefined) {
+    if (!Array.isArray(raw.tenantHosts)) fail("config.tenantHosts must be an array");
+    const seen = new Set<string>();
+    const list: TenantHost[] = [];
+    for (const entry of raw.tenantHosts) {
+      if (!isRecord(entry)) fail("tenantHosts entry must be an object");
+      const hostname = expectString(entry.hostname, "tenantHosts.hostname");
+      const audience = expectString(entry.audience, "tenantHosts.audience");
+      const organizationId = expectString(entry.organizationId, "tenantHosts.organizationId");
+      if (!/^[a-z0-9.-]+$/i.test(hostname)) fail(`invalid tenant hostname: ${hostname}`);
+      if (!/^[a-z][a-z0-9_-]{0,31}$/.test(audience)) fail(`invalid tenant audience: ${audience}`);
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(organizationId)) fail(`invalid tenant organizationId: ${organizationId}`);
+      if (seen.has(hostname)) fail(`duplicate tenant hostname: ${hostname}`);
+      seen.add(hostname);
+      list.push({ hostname, audience, organizationId });
+    }
+    tenantHosts = list;
+  }
+  return tenantHosts === undefined ? { origins, routes } : { origins, routes, tenantHosts };
 }

@@ -1,0 +1,19 @@
+{
+  "name": "@gateway/config-compiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "gateway-config": "./src/cli.ts" },
+  "scripts": {
+    "typecheck": "tsc --project tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gateway/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  }
+}

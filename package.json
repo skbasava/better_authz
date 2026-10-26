@@ -7,7 +7,8 @@
     "packages/shared",
     "packages/gateway",
     "packages/auth",
-    "packages/example-backend"
+    "packages/example-backend",
+    "packages/config-compiler"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -16,8 +17,5 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  },
-  "dependencies": {
-    "drizzle-orm": "^0.45.4"
   }
 }

@@ -27,6 +27,12 @@ export interface GatewayVariables {
   requestId: string;
   clientIp: string | null;
   sanitizedHeaders: Headers;
+  /** Set after route match (per-route/tenant/env resolution). */
+  routeId: string;
+  audience: string;
+  /** Set after a successful authorize (absent on public routes). */
+  userId: string | null;
+  organizationId: string | null;
 }
 
 export type GatewayEnv = {

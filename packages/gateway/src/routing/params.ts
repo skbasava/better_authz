@@ -14,14 +14,19 @@ export function isValidParamValue(value: string): boolean {
  * Resolve an organization source against the request.
  *  - "path.paramName"  → matched route parameter (shared-gateway topology)
  *  - "const.org_xxx"   → fixed at config time (dedicated per-org gateway)
- * Both are validated against the identifier grammar. The value is trusted
- * operator config in the const case — the auth worker still verifies
- * membership against it, so a misconfigured const org can only deny.
+ *  - "host.tenant"     → tenant hostname registry (shared per-org hostnames)
+ * Both const and host sources are trusted operator config — the auth worker
+ * still verifies membership, so a misconfigured value can only deny.
  */
 export function extractOrganizationId(
   source: OrganizationIdSource,
   params: ReadonlyMap<string, string>,
+  hostTenant?: { readonly organizationId: string } | null,
 ): string | null {
+  if (source === "host.tenant") {
+    const org = hostTenant?.organizationId;
+    return org !== undefined && isValidParamValue(org) ? org : null;
+  }
   const dot = source.indexOf(".");
   if (dot < 0 || dot === source.length - 1) return null;
   if (source.startsWith("const.")) {

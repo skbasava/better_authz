@@ -74,3 +74,58 @@ describe("const organization source (per-org gateway)", () => {
     ).toThrow(/organizationIdFrom/);
   });
 });
+
+describe("host.tenant source (shared-gateway tenant hostnames)", () => {
+  it("resolves org from the tenant registry, ignoring params", () => {
+    expect(
+      extractOrganizationId("host.tenant", new Map(), { organizationId: "org_acme" }),
+    ).toBe("org_acme");
+    expect(extractOrganizationId("host.tenant", new Map())).toBeNull();
+  });
+
+  it("config validation accepts tenantHosts", () => {
+    const config = validateRouteConfig(
+      {
+        origins: [origin],
+        tenantHosts: [{ hostname: "acme.example.com", audience: "erp", organizationId: "org_acme_erp" }],
+        routes: [
+          {
+            id: "t-invoices",
+            method: "GET",
+            path: "/api/invoices",
+            originId: "erp",
+            destinationPath: "/v1/invoices",
+            policy: { kind: "organization-permission", organizationIdFrom: "host.tenant", allOf: ["invoice.read"] },
+          },
+        ],
+      },
+      catalog,
+    );
+    expect(config.tenantHosts).toHaveLength(1);
+  });
+
+  it("config validation rejects duplicate tenant hostnames", () => {
+    expect(() =>
+      validateRouteConfig(
+        {
+          origins: [origin],
+          tenantHosts: [
+            { hostname: "acme.example.com", audience: "erp", organizationId: "org1" },
+            { hostname: "acme.example.com", audience: "erp", organizationId: "org2" },
+          ],
+          routes: [
+            {
+              id: "dummy",
+              method: "GET",
+              path: "/api/x",
+              originId: "erp",
+              destinationPath: "/v1/x",
+              policy: { kind: "signed-in" },
+            },
+          ],
+        },
+        catalog,
+      ),
+    ).toThrow(/duplicate tenant hostname/);
+  });
+});

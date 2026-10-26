@@ -15,6 +15,7 @@ export type PolicyBuildResult =
 export function buildPolicy(
   config: PolicyConfig,
   params: ReadonlyMap<string, string>,
+  hostTenant?: { readonly organizationId: string } | null,
 ): PolicyBuildResult {
   switch (config.kind) {
     case "public":
@@ -26,7 +27,7 @@ export function buildPolicy(
     case "global-role":
       return { kind: "policy", policy: { kind: "global-role", allowedRoles: config.allowedRoles } };
     case "organization-permission": {
-      const organizationId = extractOrganizationId(config.organizationIdFrom, params);
+      const organizationId = extractOrganizationId(config.organizationIdFrom, params, hostTenant);
       if (organizationId === null) return { kind: "invalid-organization-context" };
       return {
         kind: "policy",

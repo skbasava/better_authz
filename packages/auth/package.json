@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc --project tsconfig.json",
-    "test": "vitest run --typecheck",
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

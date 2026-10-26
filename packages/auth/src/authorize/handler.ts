@@ -35,7 +35,7 @@ function allowHeaders(cookies: readonly string[]): Headers {
 }
 
 function knownAudiences(env: AuthBindings): readonly string[] {
-  return (env.KNOWN_AUDIENCES ?? "").split(",").map((s) => s.trim()).filter((s) => s !== "");
+  return env.KNOWN_AUDIENCES.split(",").map((s) => s.trim()).filter((s) => s !== "");
 }
 
 /**
